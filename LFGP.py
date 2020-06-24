@@ -112,7 +112,7 @@ class LikelihoodFreeGaussianProcess:
         elif self.map_y == 'median':
             return np.array([np.median(y[label==l],axis=0) for l in label_])
         elif self.map_y == 'variance':
-            return np.array([np.var(y[label==l],axis=0,ddof=1) for l in label_])
+            return np.array([np.var(y[label==l],axis=0,ddof=0) for l in label_])
         elif self.map_y == 'skew':
             return np.array([scipy.stats.skew(y[label==l],axis=0) for l in label_])
         else:
