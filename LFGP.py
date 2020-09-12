@@ -1,7 +1,6 @@
 import numpy as np
 import random
 import time
-import copy
 import umap
 import scipy
 from sklearn.cluster import KMeans
@@ -44,7 +43,7 @@ class LikelihoodFreeGaussianProcess:
 
     def fitting(self, X_core, y_core):
         kernel = ConstantKernel()
-        kernel *= RBF(length_scale=np.ones(len(X_core.T)))
+        kernel *= RBF(length_scale=np.ones(X_core.shape[1]))
         kernel += WhiteKernel()
         gp = GPR(kernel=kernel).fit(X_core, y_core)
         length = gp.kernel_.get_params()['k1__k2__length_scale']
@@ -55,35 +54,38 @@ class LikelihoodFreeGaussianProcess:
         label = xm.labels_
         X_core = xm.cluster_centers_                
         y_core = self.stat(y, label)
-        delta_ = 0.5*sum([sum(sum((X_[label==h]-X_core[h,:])**2)) for h in label])/len(X_)
-        return X_core, y_core, delta_
+        return X_core, y_core 
         
-    def fit(self, X, y, n_min=100, delta=1, epsilon=1, n_dim=None, 
-            n_neighbors=5, omega_max=20, display=True, scale=True):
+    def fit(self, X, y, n_min=100, epsilon=1, n_dim=None, n_neighbors=5, 
+            omega_max=20, display=True, scale=True, cluster=True):
         self.scale = scale        
         X_, time_map = self.mapping(self.dim(X), n_dim, n_neighbors)
         y = self.dim(y)
         self.length = np.ones(X_.shape[1])
         time0 = time.time()
-        omega = 1
-        while omega <= omega_max:
-            X_core, y_core, delta_ = self.clustering(X_ / self.length, y, n_min)
-            gp, length = self.fitting(X_core, y_core)
-            if omega > 1:
-                epsilon_ = gp.log_marginal_likelihood()
-                epsilon_ -= gp.log_marginal_likelihood(theta=self.gp.kernel_.theta)
-                if display ==True:
-                    print("omega:", omega, ", delta: {:.2f}".format(delta_), ", epsilon: {:.2f}".format(epsilon_))
-                if delta_ <= delta and epsilon_ <= epsilon:
-                    break
-            else:
-                if display ==True:
-                    print("omega:", omega, ", delta: {:.2f}".format(delta_))
-            if omega != omega_max:                
+        X_core, y_core = self.clustering(X_ , y, n_min)
+        gp, length = self.fitting(X_core, y_core)
+        if cluster == True:
+            for omega_ in range(omega_max):
+                theta = gp.kernel_.theta
+                theta[1:1+X_.shape[1]] = 0
                 self.length *= length
-                self.gp = copy.copy(gp)
-            omega += 1
-        omega = omega - 1 if omega > omega_max else omega
+                X_core, y_core = self.clustering(X_ / self.length, y, n_min)
+                gp, length = self.fitting(X_core, y_core)                
+                epsilon_ = gp.log_marginal_likelihood()
+                epsilon_ -= gp.log_marginal_likelihood(theta=theta)
+                if display ==True:
+                    print("omega:", omega_ + 1, ", epsilon: {:.2f}".format(epsilon_))
+                if epsilon_ <= epsilon:
+                    break
+            omega = omega_ + 1
+            kernel = ConstantKernel(np.exp(theta[0]))
+            kernel *= RBF(length_scale=np.ones(X_.shape[1]))
+            kernel += WhiteKernel(np.exp(theta[X_.shape[1]+1]))
+            self.gp = GPR(kernel=kernel, optimizer=None).fit(X_core, y_core)
+        else:
+            omega = 1
+            self.gp, length = self.fitting(X_core, y_core)
         time_fit = time.time() - time0
         if display ==True:
             print("length:", self.length)

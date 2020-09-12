@@ -8,13 +8,13 @@ UMAP (pip install umap-learn).
 OANDA DEMO ACCOUNT (oanda.com) → write ID, token to info.py
 
 Contents:
-Experiment1_1.py (Figure1,2)
-Experiment1_2.py (Table3)
-Experiment2_1.py (Table4)
-Experiment2_2.py (Figure3)
+Experiment1_1.py (Figure1, Figure2, Figure3)
+Experiment1_2.py (Table2)
+Experiment2.py (Figure4, Figure5)
 
 Modules:
 LFGP.py
 Pseuo.py
 HR.py
-BO.py 
+BO_main.py 
+BO_base.py 
